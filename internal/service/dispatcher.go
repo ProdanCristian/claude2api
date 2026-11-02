@@ -147,6 +147,16 @@ func (Dispatcher) Complete(reqModel string, prompt Prompt, onText func(string)) 
 		}
 
 		convID, err := client.CreateConversation(model, think)
+		// 旧导入的账号可能保存了无法聊天的组织，403 时重新查询并在组织变化后重试一次。
+		if err != nil && strings.Contains(err.Error(), "HTTP 403") {
+			if info, infoErr := client.GetUserInfo(); infoErr == nil && info.OrgUUID != "" && info.OrgUUID != acct.OrgUUID {
+				repository.UpdateAccount(email, func(a *repository.Account) {
+					a.OrgUUID, a.SubscriptionPlan, a.Models = info.OrgUUID, info.SubscriptionPlan, info.Models
+				})
+				slog.Info("[API] 组织已更正，重试建会话", "email", email, "org", info.OrgUUID)
+				convID, err = client.CreateConversation(model, think)
+			}
+		}
 		if err != nil {
 			lastErr = err
 			if s.RemoveInvalidAccount && strings.Contains(err.Error(), "account_session_invalid") {
