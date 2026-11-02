@@ -19,8 +19,9 @@ type ClaudeAccount struct {
 	EmailAddress string `json:"email_address"`
 	Memberships  []struct {
 		Organization struct {
-			UUID             string `json:"uuid"`
-			SubscriptionPlan string `json:"analytics_subscription_plan"`
+			UUID             string   `json:"uuid"`
+			Capabilities     []string `json:"capabilities"`
+			SubscriptionPlan string   `json:"analytics_subscription_plan"`
 			Models           []struct {
 				ID           string   `json:"model"`
 				Name         string   `json:"name"`
@@ -37,7 +38,14 @@ func (account ClaudeAccount) UserInfo() *UserInfo {
 	if len(account.Memberships) == 0 {
 		return info
 	}
+	// 多组织账号的首个组织可能是 API/Console 组织，无法聊天，优先选择具备 chat 能力的组织。
 	organization := account.Memberships[0].Organization
+	for _, membership := range account.Memberships {
+		if slices.Contains(membership.Organization.Capabilities, "chat") {
+			organization = membership.Organization
+			break
+		}
+	}
 	info.OrgUUID = organization.UUID
 	info.SubscriptionPlan = organization.SubscriptionPlan
 	for _, model := range organization.Models {

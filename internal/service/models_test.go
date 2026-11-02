@@ -40,3 +40,16 @@ func TestModelsFromCapturedFreeAccount(t *testing.T) {
 		t.Fatal("未同步套餐的账号不能开放模型")
 	}
 }
+
+func TestUserInfoPrefersChatOrganization(t *testing.T) {
+	var account ClaudeAccount
+	body := `{"email_address":"a@b.c","memberships":[
+		{"organization":{"uuid":"api-org","capabilities":["api"],"analytics_subscription_plan":"api_individual"}},
+		{"organization":{"uuid":"chat-org","capabilities":["chat"],"analytics_subscription_plan":"claude_free"}}]}`
+	if err := json.Unmarshal([]byte(body), &account); err != nil {
+		t.Fatal(err)
+	}
+	if info := account.UserInfo(); info.OrgUUID != "chat-org" || info.SubscriptionPlan != "claude_free" {
+		t.Fatalf("应选择 chat 组织：%+v", info)
+	}
+}
